@@ -59,18 +59,21 @@ class FlickrAPI(object):
                     float(r['photo']['location']['latitude']))
 
     def info(self, photo_id):
-        r = self.get('flickr.photos.getInfo', {
-            'photo_id': photo_id,
-        }).json()
+        try:
+            r = self.get('flickr.photos.getInfo', {
+                'photo_id': photo_id,
+            }).json()
 
-        if r['stat'] == 'ok':
-            return {
-                'location': (float(r['photo']['location']['longitude']),
-                             float(r['photo']['location']['latitude'])),
-                'title': r['photo']['title'].get('_content', ''),
-                'description': r['photo']['description'].get('_content', ''),
-                'url': r['photo']['urls']['url'][0]['_content'],
-            }
+            if r['stat'] == 'ok':
+                return {
+                    'location': (float(r['photo']['location']['longitude']),
+                                 float(r['photo']['location']['latitude'])),
+                    'title': r['photo']['title'].get('_content', ''),
+                    'description': r['photo']['description'].get('_content', ''),
+                    'url': r['photo']['urls']['url'][0]['_content'],
+                }
+        except (TypeError, ValueError, KeyError, IndexError, IOError):
+            pass
 
     def search(self, bbox):
         """
