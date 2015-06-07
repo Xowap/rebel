@@ -14,15 +14,17 @@ MAX_TOTAL = 4000
 
 
 class FlickrAPI(object):
-    def __init__(self, key, secret):
-        self.key, self.secret = key, secret
+    def __init__(self, keys, secret):
+        self.keys, self.secret = keys, secret
+        self.key_index = 0
         self.last_query = None
 
     def rate_limit(self):
         now = time.time()
+        interval = QUERY_INTERVAL_SEC / len(self.keys)
 
-        if self.last_query is not None and now - self.last_query < QUERY_INTERVAL_SEC:
-            time.sleep((QUERY_INTERVAL_SEC - now + self.last_query) * 0.01)
+        if self.last_query is not None and now - self.last_query < interval:
+            time.sleep((interval - now + self.last_query) * 0.01)
 
         self.last_query = now
 
@@ -32,8 +34,11 @@ class FlickrAPI(object):
         if params is None:
             params = {}
 
+        key = self.keys[self.key_index % len(self.keys)]
+        self.key_index += 1
+
         params.update({
-            'api_key': self.key,
+            'api_key': key,
             'format': 'json',
             'nojsoncallback': 1,
             'method': method,

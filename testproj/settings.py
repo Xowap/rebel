@@ -93,4 +93,4 @@ USE_TZ = True
 STATIC_URL = '/static/'
 
 # Flickr
-FLICKR_API_KEY = os.getenv('FLICKR_API_KEY')
+FLICKR_API_KEY = os.getenv('FLICKR_API_KEY', '').split(',')
