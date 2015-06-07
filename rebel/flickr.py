@@ -66,8 +66,6 @@ class FlickrAPI(object):
 
         Within a call, a single picture is guaranteed to be returned only once.
 
-        Bboxes are expected to be of the size of cities. Bigger ones might be very slow to process.
-
         :param bbox:
         :return:
         """
@@ -89,25 +87,15 @@ class FlickrAPI(object):
                         y_1 + h * (j + 1),
                     )
 
-        def find_bbox_split():
-            i = 1
+        def find_bbox_splits(candidate_bbox):
+            for sub_bbox in split_bbox(candidate_bbox, 2):
+                r = get_photos(1, sub_bbox)
+                c = int(r['photos']['total'])
 
-            while True:
-                i *= 2
-                sub_max = 0
-
-                for sub_bbox in split_bbox(bbox, i):
-                    r = get_photos(1, sub_bbox)
-                    c = int(r['photos']['total'])
-
-                    if c > sub_max:
-                        sub_max = c
-
-                    if c > MAX_TOTAL:
-                        break
-
-                if sub_max <= MAX_TOTAL:
-                    return i
+                if c > MAX_TOTAL:
+                    yield from find_bbox_splits(sub_bbox)
+                else:
+                    yield sub_bbox
 
         def check_response(r):
             valid = 'photos' in r \
@@ -148,7 +136,7 @@ class FlickrAPI(object):
                         break
 
         def get_all():
-            for sub_bbox in split_bbox(bbox, find_bbox_split()):
+            for sub_bbox in find_bbox_splits(bbox):
                 yield from get_sub(sub_bbox)
 
         yield from get_all()
