@@ -58,6 +58,20 @@ class FlickrAPI(object):
             return (float(r['photo']['location']['longitude']),
                     float(r['photo']['location']['latitude']))
 
+    def info(self, photo_id):
+        r = self.get('flickr.photos.getInfo', {
+            'photo_id': photo_id,
+        }).json()
+
+        if r['stat'] == 'ok':
+            return {
+                'location': (float(r['photo']['location']['longitude']),
+                             float(r['photo']['location']['latitude'])),
+                'title': r['photo']['title'].get('_content', ''),
+                'description': r['photo']['description'].get('_content', ''),
+                'url': r['photo']['urls']['url'][0]['_content'],
+            }
+
     def search(self, bbox):
         """
         This function returns all pictures found within a bounding box. If the bounding box returns

@@ -13,20 +13,23 @@ from rebel.models import FlickrPicture
 
 
 class Command(BaseCommand):
-    help = 'Import locations of Flickr pictures currently in DB'
+    help = 'Import meta data of Flickr pictures currently in DB'
 
     def handle(self, *args, **options):
         flickr = FlickrAPI(settings.FLICKR_API_KEY, None)
         i = 0
 
-        photos = list(FlickrPicture.objects.filter(location__isnull=True))
+        photos = list(FlickrPicture.objects.filter(url=''))
         random.shuffle(photos)
 
         for photo in photos:
-            location = flickr.location(photo.flickr_id)
+            info = flickr.info(photo.flickr_id)
 
-            if location is not None:
-                photo.location = Point(*location)
+            if info is not None:
+                photo.location = Point(*info['location'])
+                photo.title = info['title']
+                photo.description = info['description']
+                photo.url = info['url']
                 photo.save()
 
             if not i % 100:
@@ -34,3 +37,5 @@ class Command(BaseCommand):
                 self.stdout.flush()
 
             i += 1
+
+        self.stdout.write(' done!')
