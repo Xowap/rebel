@@ -41,6 +41,23 @@ class FlickrAPI(object):
 
         return requests.get(ENDPOINT, params=params, **kwargs)
 
+    def location(self, photo_id):
+        """
+        Returns the (longitude, latitude) location of the specified photo, or None if an error
+        occurred.
+
+        :param photo_id:
+        :return:
+        """
+
+        r = self.get('flickr.photos.geo.getLocation', {
+            'photo_id': photo_id,
+        }).json()
+
+        if r['stat'] == 'ok':
+            return (float(r['photo']['location']['longitude']),
+                    float(r['photo']['location']['latitude']))
+
     def search(self, bbox):
         """
         This function returns all pictures found within a bounding box. If the bounding box returns
