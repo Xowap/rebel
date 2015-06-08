@@ -5,8 +5,8 @@
 
 from django.core.management.base import BaseCommand
 from django.conf import settings
-from rebel.flickr import FlickrAPI, ChunkIterator
-from rebel.models import FlickrPicture
+from rebel.flickr import FlickrAPI, ChunkIterator, BaseBboxExplorer
+from rebel.models import FlickrPicture, BboxProgression
 
 
 class Command(BaseCommand):
@@ -17,8 +17,9 @@ class Command(BaseCommand):
 
     def handle(self, bbox, *args, **options):
         flickr = FlickrAPI(settings.FLICKR_API_KEY, None)
+        explorer = BboxExplorer()
 
-        for photos_it in ChunkIterator(flickr.search(bbox)).chunks(100):
+        for photos_it in ChunkIterator(flickr.search(bbox, explorer)).chunks(100):
             photos = list(photos_it)
             photos_ids = set(int(x['id']) for x in photos)
             current_ids = set(FlickrPicture.objects
@@ -27,10 +28,32 @@ class Command(BaseCommand):
             missing = photos_ids - current_ids
 
             FlickrPicture.objects.bulk_create(
-                FlickrPicture(flickr_id=x['id']) for x in photos if int(x['id']) in missing
+                FlickrPicture(flickr_id=x['id'], owner_id=x['owner'])
+                for x in photos if int(x['id']) in missing
             )
 
             self.stdout.write('.', ending='')
             self.stdout.flush()
 
         self.stdout.write(' done!')
+
+
+class BboxExplorer(BaseBboxExplorer):
+    def progression(self, bbox):
+        try:
+            x1, y1, x2, y2 = bbox
+            p = BboxProgression.objects.get(x1=x1, y1=y1, x2=x2, y2=y2)
+            return p.count, p.done
+        except BboxProgression.DoesNotExist:
+            return None, False
+
+    def explore(self, bbox, count, done):
+        x1, y1, x2, y2 = bbox
+        p, _ = BboxProgression.objects.get_or_create(x1=x1, y1=y1, x2=x2, y2=y2, defaults={
+            'count': count,
+        })
+
+        BboxProgression.objects.filter(pk=p.pk).update(
+            count=count,
+            done=done,
+        )

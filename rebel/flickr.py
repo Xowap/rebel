@@ -11,6 +11,7 @@ ENDPOINT = 'https://api.flickr.com/services/rest/'
 QUERY_INTERVAL_SEC = 1.0
 PER_PAGE = 250
 MAX_TOTAL = 4000
+MAX_DEPTH = 20
 
 
 class FlickrAPI(object):
@@ -76,11 +77,13 @@ class FlickrAPI(object):
                     'title': r['photo']['title'].get('_content', ''),
                     'description': r['photo']['description'].get('_content', ''),
                     'url': r['photo']['urls']['url'][0]['_content'],
+                    'owner': r['photo']['owner']['nsid'],
+                    'raw': r['photo'],
                 }
         except (TypeError, ValueError, KeyError, IndexError, IOError):
             pass
 
-    def search(self, bbox):
+    def search(self, bbox, explorer):
         """
         This function returns all pictures found within a bounding box. If the bounding box returns
         too many results (more than 4000), it will automatically be divided in order to be able to
@@ -89,6 +92,7 @@ class FlickrAPI(object):
         Within a call, a single picture is guaranteed to be returned only once.
 
         :param bbox:
+        :param explorer: BaseBboxExplorer
         :return:
         """
 
@@ -109,15 +113,24 @@ class FlickrAPI(object):
                         y_1 + h * (j + 1),
                     )
 
-        def find_bbox_splits(candidate_bbox):
+        def find_bbox_splits(candidate_bbox, depth=0):
             for sub_bbox in split_bbox(candidate_bbox, 2):
-                r = get_photos(1, sub_bbox)
-                c = int(r['photos']['total'])
+                count, done = explorer.progression(sub_bbox)
 
-                if c > MAX_TOTAL:
-                    yield from find_bbox_splits(sub_bbox)
-                else:
-                    yield sub_bbox
+                if not done:
+                    if count is None:
+                        r = get_photos(1, sub_bbox)
+                        c = int(r['photos']['total'])
+                        explorer.explore(sub_bbox, c, False)
+                    else:
+                        c = count
+
+                    if c > MAX_TOTAL and depth < MAX_DEPTH:
+                        yield from find_bbox_splits(sub_bbox, depth + 1)
+                    else:
+                        yield sub_bbox
+
+                    explorer.explore(sub_bbox, c, True)
 
         def check_response(r):
             valid = 'photos' in r \
@@ -162,6 +175,14 @@ class FlickrAPI(object):
                 yield from get_sub(sub_bbox)
 
         yield from get_all()
+
+
+class BaseBboxExplorer(object):
+    def progression(self, bbox):
+        raise NotImplementedError
+
+    def explore(self, bbox, count, done):
+        raise NotImplementedError
 
 
 class ChunkIterator(object):

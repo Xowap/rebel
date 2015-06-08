@@ -4,6 +4,7 @@
 # (c) 2015 Rémy Sanchez <remy.sanchez@hyperthese.net>
 
 import random
+import json
 
 from django.contrib.gis.geos import Point
 from django.core.management.base import BaseCommand
@@ -30,6 +31,8 @@ class Command(BaseCommand):
                 photo.title = info['title']
                 photo.description = info['description']
                 photo.url = info['url']
+                photo.owner = info['owner']
+                photo.raw = json.dumps(info['raw'])
                 photo.save()
 
             if not i % 100:
