@@ -83,7 +83,7 @@ class FlickrAPI(object):
         except (TypeError, ValueError, KeyError, IndexError, IOError):
             pass
 
-    def search(self, bbox, explorer):
+    def search(self, bbox, explorer, extras=None):
         """
         This function returns all pictures found within a bounding box. If the bounding box returns
         too many results (more than 4000), it will automatically be divided in order to be able to
@@ -97,6 +97,9 @@ class FlickrAPI(object):
         """
 
         pic_ids = set()
+
+        if extras is None:
+            extras = []
 
         def split_bbox(big_bbox, n):
             x_1, y_1, x_2, y_2 = big_bbox
@@ -155,6 +158,7 @@ class FlickrAPI(object):
                 'perpage': PER_PAGE,
                 'bbox': ','.join(str(x) for x in sub_bbox),
                 'page': page,
+                'extras': ','.join(extras)
             }).json()
 
         def get_sub(sub_bbox):

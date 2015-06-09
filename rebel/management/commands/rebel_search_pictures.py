@@ -3,6 +3,10 @@
 # rebel
 # (c) 2015 Rémy Sanchez <remy.sanchez@hyperthese.net>
 
+import json
+import time
+
+from django.contrib.gis.geos import Point
 from django.core.management.base import BaseCommand
 from django.conf import settings
 from rebel.flickr import FlickrAPI, ChunkIterator, BaseBboxExplorer
@@ -18,24 +22,44 @@ class Command(BaseCommand):
     def handle(self, bbox, *args, **options):
         flickr = FlickrAPI(settings.FLICKR_API_KEY, None)
         explorer = BboxExplorer()
+        extras = ['description', 'date_taken', 'geo']
 
-        for photos_it in ChunkIterator(flickr.search(bbox, explorer)).chunks(100):
-            photos = list(photos_it)
-            photos_ids = set(int(x['id']) for x in photos)
-            current_ids = set(FlickrPicture.objects
-                              .filter(flickr_id__in=photos_ids)
-                              .values_list('flickr_id', flat=True))
-            missing = photos_ids - current_ids
+        while True:
+            try:
+                for photos_it in ChunkIterator(flickr.search(bbox, explorer, extras)).chunks(100):
+                    photos = list(photos_it)
+                    photos_ids = set(int(x['id']) for x in photos)
+                    current_ids = set(FlickrPicture.objects
+                                      .filter(flickr_id__in=photos_ids)
+                                      .values_list('flickr_id', flat=True))
+                    missing = photos_ids - current_ids
 
-            FlickrPicture.objects.bulk_create(
-                FlickrPicture(flickr_id=x['id'], owner_id=x['owner'])
-                for x in photos if int(x['id']) in missing
-            )
+                    FlickrPicture.objects.bulk_create(
+                        FlickrPicture(
+                            flickr_id=x['id'],
+                            owner_id=x['owner'],
+                            title=x['title'],
+                            description=x['description'].get('_content'),
+                            location=Point(float(x['longitude']), float(x['latitude'])),
+                            url='https://www.flickr.com/photos/{user_id}/{photo_id}'.format(
+                                user_id=x['owner'],
+                                photo_id=x['id'],
+                            ),
+                            raw=json.dumps(x),
+                        )
+                        for x in photos if int(x['id']) in missing
+                    )
 
-            self.stdout.write('.', ending='')
-            self.stdout.flush()
+                    self.stdout.write('.', ending='')
+                    self.stdout.flush()
 
-        self.stdout.write(' done!')
+                self.stdout.write(' done!')
+                break
+            except KeyboardInterrupt:
+                self.stdout.write('\nAll right, going away.')
+                break
+            except ValueError:
+                time.sleep(1)
 
 
 class BboxExplorer(BaseBboxExplorer):

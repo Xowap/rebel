@@ -10,7 +10,7 @@ from django.contrib.gis.db import models as geo_models
 class FlickrPicture(models.Model):
     flickr_id = models.BigIntegerField(unique=True)
     owner_id = models.TextField(blank=True, default='')
-    location = geo_models.PointField(null=True)
+    location = geo_models.PointField(null=True, spatial_index=True, db_index=True)
     title = models.TextField(blank=True, default='')
     description = models.TextField(blank=True, default='')
     url = models.URLField(blank=True, default='')
